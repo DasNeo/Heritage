@@ -3,7 +3,10 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
-using TaleWorlds.CampaignSystem.Barterables;
+using TaleWorlds.CampaignSystem.BarterSystem;
+using TaleWorlds.CampaignSystem.BarterSystem.Barterables;
+using TaleWorlds.CampaignSystem.Conversation;
+using TaleWorlds.CampaignSystem.Party;
 
 namespace Heritage
 {
@@ -90,7 +93,7 @@ namespace Heritage
                 && sentence.InputToken == lord_propose_marriage_to_clan_leader_options
                 && sentence.OutputToken == lord_propose_marriage_to_clan_leader_response)
             {
-                CharacterObject characterObject = ConversationSentence.LastSelectedRepeatObject as CharacterObject;
+                CharacterObject characterObject = ConversationSentence.SelectedRepeatObject as CharacterObject;
                 if (characterObject != null)
                 {
                     playerRelative = characterObject.HeroObject;

@@ -1,23 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using TaleWorlds.CampaignSystem;
+using TaleWorlds.CampaignSystem.CharacterDevelopment;
+using TaleWorlds.CampaignSystem.Extensions;
 using TaleWorlds.Core;
 
 namespace Heritage
 {
     internal class HeroFixHelper
     {
-        private static List<CharacterAttributesEnum> attrList = new List<CharacterAttributesEnum> {
-            CharacterAttributesEnum.Vigor,
-            CharacterAttributesEnum.Control,
-            CharacterAttributesEnum.Endurance,
-            CharacterAttributesEnum.Cunning,
-            CharacterAttributesEnum.Social,
-            CharacterAttributesEnum.Intelligence,
-        };
-
         public static void FixHeroStats(Hero hero)
         {
+            
             if (hero.IsDead || hero.IsDisabled)
             {
                 return;
@@ -27,7 +21,7 @@ namespace Heritage
 
             // attr
             int attrSum = hero.HeroDeveloper.UnspentAttributePoints;
-            foreach (CharacterAttributesEnum attr in attrList)
+            foreach (CharacterAttribute attr in Attributes.All)
             {
                 attrSum += hero.GetAttributeValue(attr);
             }
@@ -48,7 +42,7 @@ namespace Heritage
             // focus
             int focusSum = hero.HeroDeveloper.UnspentFocusPoints;
             int skillSum = 0;
-            foreach (SkillObject skill in Game.Current.SkillList)
+            foreach (SkillObject skill in Skills.All)
             {
                 focusSum += hero.HeroDeveloper.GetFocus(skill);
                 skillSum += hero.GetSkillValue(skill);
@@ -100,17 +94,17 @@ namespace Heritage
         private static void FixSkills(Hero hero, double diffSkill)
         {
             int val;
-            double skillAdd = Game.Current.SkillList.Count > 0 ? Math.Ceiling(diffSkill / Game.Current.SkillList.Count) : 1;
-            foreach (SkillObject skill in Game.Current.SkillList)
+            double skillAdd = Skills.All.Count > 0 ? Math.Ceiling(diffSkill / Skills.All.Count) : 1;
+            foreach (SkillObject skill in Skills.All)
             {
                 val = hero.GetSkillValue(skill);
                 val += (int)skillAdd;
                 hero.SetSkillValue(skill, val);
-                float xp = hero.HeroDeveloper.GetPropertyValue(skill);
+                float xp = hero.HeroDeveloper.GetSkillXpProgress(skill);
                 float xpNeeded = Campaign.Current.Models.CharacterDevelopmentModel.GetXpRequiredForSkillLevel(val);
                 if (xpNeeded > xp)
                 {
-                    hero.HeroDeveloper.SetPropertyValue(skill, xpNeeded);
+                    hero.SetSkillValue(skill, (int)xpNeeded);
                 }
             }
         }
@@ -121,7 +115,7 @@ namespace Heritage
             double val;
             int cur;
 
-            foreach (CharacterAttributesEnum attr in attrList)
+            foreach (CharacterAttribute attr in Attributes.All)
             {
                 sumOfParentsAttributes += Math.Max(2, (hero.Father != null) ? hero.Father.GetAttributeValue(attr) : 0);
                 sumOfParentsAttributes += Math.Max(2, (hero.Mother != null) ? hero.Mother.GetAttributeValue(attr) : 0);
@@ -129,39 +123,41 @@ namespace Heritage
                 cur = hero.GetAttributeValue(attr);
                 if (cur < 2 && hero.HeroDeveloper.UnspentAttributePoints > 0)
                 {
-                    AddAttribute(hero, attr, Math.Min(2 - cur, hero.HeroDeveloper.UnspentAttributePoints));
+                    hero.HeroDeveloper.AddAttribute(attr, Math.Min(2 - cur, hero.HeroDeveloper.UnspentAttributePoints));
                 }
             }
 
             double u = hero.HeroDeveloper.UnspentAttributePoints;
-            foreach (CharacterAttributesEnum attr in attrList)
+            foreach (CharacterAttribute attr in Attributes.All)
             {
                 val = 0;
                 val += Math.Max(2, (hero.Father != null) ? hero.Father.GetAttributeValue(attr) : 0);
                 val += Math.Max(2, (hero.Mother != null) ? hero.Mother.GetAttributeValue(attr) : 0);
                 val = (int)Math.Max(0, Math.Round(val * u / sumOfParentsAttributes));
 
-                if (!hero.HeroDeveloper.IsHeroAtMaxAttribute())
+                if (GetHeroAttributeCount(hero) < Campaign.Current.Models.CharacterDevelopmentModel.MaxAttribute)
                 {
-                    AddAttribute(hero, attr, Math.Min((int)val, hero.HeroDeveloper.UnspentAttributePoints));
+                    hero.HeroDeveloper.AddAttribute(attr, Math.Min((int)val, hero.HeroDeveloper.UnspentAttributePoints));
                 }
             }
-
-            while (hero.HeroDeveloper.UnspentAttributePoints > 0 && !hero.HeroDeveloper.IsHeroAtMaxAttribute())
+           
+            while (hero.HeroDeveloper.UnspentAttributePoints > 0)
             {
-                AddAttribute(hero, attrList.GetRandomElement(), 1);
+                hero.HeroDeveloper.AddAttribute(Attributes.All.GetRandomElement(), 1);
             }
         }
 
-        private static void AddAttribute(Hero hero, CharacterAttributesEnum attr, int val)
+        private static int GetHeroAttributeCount(Hero hero)
         {
-            if (val > 0 && hero.HeroDeveloper.UnspentAttributePoints >= val)
+            var counter = 0;
+            foreach(var attribute in Attributes.All)
             {
-                int c = hero.GetAttributeValue(attr);
-                hero.SetAttributeValue(attr, c + val);
-                int diff = hero.GetAttributeValue(attr) - c;
-                hero.HeroDeveloper.UnspentAttributePoints -= diff;
+                if(hero.GetAttributeValue(attribute) > 0)
+                {
+                    counter++;
+                }
             }
+            return counter;
         }
 
         private static void RandomizeAppearance(Hero hero)
@@ -254,7 +250,7 @@ namespace Heritage
 
             BasicCharacterObject tmp = Game.Current.PlayerTroop;
             Game.Current.PlayerTroop = hero.CharacterObject;
-            hero.CharacterObject.UpdatePlayerCharacterBodyProperties(newBodyProperties, hero.IsFemale);
+            hero.CharacterObject.UpdatePlayerCharacterBodyProperties(newBodyProperties, hero.CharacterObject.Race, hero.IsFemale);
             Game.Current.PlayerTroop = tmp;
         }
 
@@ -342,11 +338,11 @@ namespace Heritage
         internal static void FixEquipment(Hero hero)
         {
             if (HeroFixEquipmentProperty == null
-                || hero.HeroDeveloper.GetPropertyValue(HeroFixEquipmentProperty) != 0)
+                || ((HeroDeveloper)hero.HeroDeveloper).GetPropertyValue(HeroFixEquipmentProperty) != 0)
             {
                 return;
             }
-            hero.HeroDeveloper.SetPropertyValue(HeroFixEquipmentProperty, 1);
+            ((HeroDeveloper)hero.HeroDeveloper).SetPropertyValue(HeroFixEquipmentProperty, 1);
 
             Hero civilianSourceHero = null;
 

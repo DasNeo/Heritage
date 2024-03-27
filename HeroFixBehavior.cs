@@ -50,14 +50,14 @@ namespace Heritage
                 {
                     HeroFixHelper.FixHeroStats(child);
 
-                    if (!child.Mother.IsNoble && child.Father.IsNoble)
+                    if (child.Mother.Occupation != Occupation.Lord && child.Father.Occupation == Occupation.Lord)
                     {
-                        child.IsNoble = true;
+                        child.SetNewOccupation(Occupation.Lord);
                         child.Clan = child.Father.Clan;
                     }
-                    else if (child.Mother.IsNoble && !child.Father.IsNoble)
+                    else if (child.Mother.Occupation == Occupation.Lord && child.Father.Occupation != Occupation.Lord)
                     {
-                        child.IsNoble = true;
+                        child.SetNewOccupation(Occupation.Lord);
                         child.Clan = child.Mother.Clan;
                     }
                 }

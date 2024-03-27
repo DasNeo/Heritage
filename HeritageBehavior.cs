@@ -4,6 +4,11 @@ using System.Linq;
 using Helpers;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
+using TaleWorlds.CampaignSystem.Extensions;
+using TaleWorlds.CampaignSystem.GameState;
+using TaleWorlds.CampaignSystem.Inventory;
+using TaleWorlds.CampaignSystem.Party;
+using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
 using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade.GauntletUI.Widgets.Menu.Overlay;
@@ -17,7 +22,8 @@ namespace Heritage
 
         private Hero characterWindowHero = null;
         private MobileParty characterWindowParty = null;
-        private List<string> characterWindowEvents = null;
+        // TODO: add back in
+        //private List<string> characterWindowEvents = null;
         private Settlement characterWindowSettlement = null;
 
 
@@ -73,14 +79,17 @@ namespace Heritage
 
         private void PrepareCharacterWindow_Internal()
         {
-            characterWindowSettlement = characterWindowHero.StayingInSettlementOfNotable;
+            characterWindowSettlement = characterWindowHero.StayingInSettlement;
 
+            /*
+            characterWindowHero.CanHaveQuestsOrIssues
             characterWindowEvents = new List<string>(characterWindowHero.GetHeroOccupiedEvents());
             string evt;
             while ((evt = characterWindowHero.GetHeroOccupiedEvents().FirstOrDefault()) != default)
             {
                 characterWindowHero.RemoveEventFromOccupiedHero(evt);
             }
+            */
 
             characterWindowParty = characterWindowHero.PartyBelongedTo;
             if (characterWindowParty != MobileParty.MainParty)
@@ -125,21 +134,23 @@ namespace Heritage
                     if (characterWindowParty != null)
                     {
                         characterWindowParty.MemberRoster.AddToCounts(characterWindowHero.CharacterObject, 1);
-                        characterWindowParty.ChangePartyLeader(characterWindowHero.CharacterObject);
+                        characterWindowParty.ChangePartyLeader(characterWindowHero.CharacterObject.HeroObject);
                     }
                 }
 
+                /*
                 foreach (string e in characterWindowEvents)
                 {
                     characterWindowHero.AddEventForOccupiedHero(e);
                 }
+                */
 
-                characterWindowHero.StayingInSettlementOfNotable = characterWindowSettlement;
+                characterWindowHero.StayingInSettlement = characterWindowSettlement;
             }
 
             characterWindowHero = null;
             characterWindowParty = null;
-            characterWindowEvents = null;
+            //characterWindowEvents = null;
         }
 
         private void ConsequenceChangeClanLeader()
@@ -180,13 +191,14 @@ namespace Heritage
 
             if (newLeader.GovernorOf != null)
             {
-                ChangeGovernorAction.ApplyByGiveUpCurrent(newLeader);
+                ChangeGovernorAction.RemoveGovernorOf(newLeader);
             }
             if (leader.GovernorOf != null)
             {
-                ChangeGovernorAction.ApplyByGiveUpCurrent(leader);
+                ChangeGovernorAction.RemoveGovernorOf(leader);
             }
 
+            /*
             string evt;
             while ((evt = newLeader.GetHeroOccupiedEvents().FirstOrDefault()) != default)
             {
@@ -196,6 +208,7 @@ namespace Heritage
             {
                 leader.RemoveEventFromOccupiedHero(evt);
             }
+            */
 
             GiveGoldAction.ApplyBetweenCharacters(leader, newLeader, leader.Gold, true);
 
@@ -247,7 +260,7 @@ namespace Heritage
             }
             else
             {
-                leaderParty.Party.Owner = newLeader;
+                leaderParty.Party.SetCustomOwner(newLeader);
                 var partyList = leaderParty.Party.MemberRoster;
                 partyList.RemoveTroop(newLeader.CharacterObject);
                 partyList.AddToCounts(newLeader.CharacterObject, 1, true);
@@ -256,19 +269,19 @@ namespace Heritage
                 leaderParty.SetCustomName(newPartyName);
             }
 
-            leader.HasMet = true;
+            leader.SetHasMet();
 
             newLeader.Clan.Influence = Math.Max(0, newLeader.Clan.Influence - 100);
 
             HeroFixHelper.FixHeroStats(newLeader);
             HeroFixHelper.FixEquipment(newLeader);
 
-            newLeaderParty.Party.Visuals.SetMapIconAsDirty();
+            newLeaderParty.Party.SetVisualAsDirty();//.Visuals.SetMapIconAsDirty();
             CampaignEventDispatcher.Instance.OnArmyOverlaySetDirty();
 
             newLeader = null;
             leader = null;
-            CampaignEvents.RemoveListeners(this);
+            CampaignEventDispatcher.Instance.RemoveListeners(this);
             Utils.Print($"[OnChangeClanLeader] changed over");
         }
 
